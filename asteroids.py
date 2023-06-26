@@ -17,11 +17,13 @@ class Spaceship():
         self.direction = 0
         self.position = (0, 0)
         self.bullets = []
-        self.velocity = 0
+        self.speed = 0.05
+        self.velocity = [0, 0]
         
         self.score = 0
         self.lives = 3
         self.screen = display
+        
         
     def _draw(self):
         global screen
@@ -55,16 +57,18 @@ class Spaceship():
         self.update()
     
     def update(self):
+        self.position = (self.position[0] + self.velocity[0], self.position[1] + self.velocity[1])
         self._draw()
+        
+        for bullet in self.bullets:
+            bullet.update()
+        pygame.display.update()
         
     def get_angle(self, coordinate):
         delta_x = coordinate[0] - self.position[0]
         delta_y = -(coordinate[1] - self.position[1])
         
-        print(f'\ncx: {self.position[0]}, cy: {self.position[1]}\ndx: {delta_x}, dy: {delta_y}\n')
-        
         if delta_x == 0 or delta_y == 0:
-            distance = math.sqrt(delta_x**2 + delta_y**2)
             if delta_x == 0:
                 return 90 if delta_y > 0 else 270
             else:
@@ -77,13 +81,40 @@ class Spaceship():
         self.direction = rad
         self.update()
         
+    def move(self, direction):
+        # directions = ["U", "D", "L", "R"]
         
+        if direction == "U":
+            self.velocity[1] -= self.speed
+        elif direction == "D":
+            self.velocity[1] += self.speed
+        elif direction == "R":
+            self.velocity[0] += self.speed
+        elif direction == "L":
+            self.velocity[0] -= self.speed
+        
+        self.update()
+        
+    def shoot(self):
+        tip_length = 20
+        tip = (self.position[0] + tip_length*math.cos(self.direction), self.position[1] - tip_length*math.sin(self.direction))
+        
+        self.bullets.append(Bullet(self.direction, tip, self.screen))
+        self.update()
         
 class Bullet():
-    def __init__(self):
-        self.direction = 0
-        self.position = (0, 0)
-        self.velocity = 0
+    def __init__(self, direction, start, screen):
+        self.direction = direction
+        self.position = start
+        self.velocity = 0.2
+        self.delta_x = self.velocity * math.cos(self.direction)
+        self.delta_y = self.velocity * math.sin(self.direction)
+        self.screen = screen
+        self.radius = 4
+        
+    def update(self):
+        self.position = (self.position[0] + self.delta_x, self.position[1] - self.delta_y)
+        pygame.draw.circle(self.screen, CL_WHITE, self.position, self.radius)
         
         
 class Screen():
@@ -93,6 +124,8 @@ class Screen():
         
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption(f"Asteroids - v{VERSION}")
+        #self.clock = pygame.time.Clock()
+        #self.clock.tick(60)
 
         self.player = Spaceship(self.screen)
         self.player.set_position((self.width/2, self.height/2))
@@ -100,15 +133,44 @@ class Screen():
     def run(self):
         while True:
             for event in pygame.event.get():
+                
+                    
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                     
-                if event.type == pygame.MOUSEMOTION:
+                elif event.type == pygame.MOUSEMOTION:
                     self.player.rotate(self.player.get_angle(event.pos))
                     
-            self.screen.fill(CL_BLACK)
-            self.player.update()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        self.player.shoot()
+                    elif event.key == pygame.K_w:
+                        self.player.move("U")
+                    elif event.key == pygame.K_a:
+                        self.player.move("L")
+                    elif event.key == pygame.K_s:
+                        self.player.move("D")
+                    elif event.key == pygame.K_d:
+                        self.player.move("R")
+                        
+                elif event.type == pygame.KEYUP:
+                    if event.key == pygame.K_SPACE:
+                        pass
+                    elif event.key == pygame.K_w:
+                        self.player.move("D")
+                    elif event.key == pygame.K_a:
+                        self.player.move("R")
+                    elif event.key == pygame.K_s:
+                        self.player.move("U")
+                    elif event.key == pygame.K_d:
+                        self.player.move("L")
+                    
+            self.update()
+            
+    def update(self):
+        self.screen.fill(CL_BLACK)
+        self.player.update()
         
 
 
