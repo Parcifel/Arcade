@@ -15,6 +15,33 @@ CL_DARK_GRAY = (50, 50, 50)
 DISPLAY = (1000, 800)
 DEFAULT_FONT_SIZE = 20
 
+pygame.font.init()
+FONT_FAMILY = "Consolas"
+SCORE_FONT = pygame.font.SysFont(FONT_FAMILY, 20)
+SCORE_TOP_LEFT = (10, 10)
+LIVES_TOP_LEFT = (10, 40)
+
+
+TIP_LENGTH = 20
+WING_LENGTH = 40
+BACK_DEPTH = 30
+TIP_ANGLE = math.radians(45) /2
+
+LIFE_WIDTH = WING_LENGTH * math.sin(TIP_ANGLE) * 2
+LIFE_HEIGHT = WING_LENGTH * math.cos(TIP_ANGLE)
+LIFE_BACK_WIDTH = BACK_DEPTH * math.sin(TIP_ANGLE) * 2
+LIFE_BACK_DEPTH = BACK_DEPTH * math.cos(TIP_ANGLE)
+
+def draw_life(screen, top_left):
+    tip = (top_left[0] + LIFE_WIDTH/2, top_left[1])
+    right_wing = (top_left[0] + LIFE_WIDTH, top_left[1] + LIFE_HEIGHT)
+    left_wing = (top_left[0], top_left[1] + LIFE_HEIGHT)
+    right_back = (tip[0] + LIFE_BACK_WIDTH/2, tip[1] + LIFE_BACK_DEPTH)
+    left_back = (tip[0] - LIFE_BACK_WIDTH/2, tip[1] + LIFE_BACK_DEPTH)
+    
+    life = [tip, right_wing, right_back, left_back, left_wing]
+    pygame.draw.polygon(screen, CL_WHITE, life, 2)
+    
 class Screen:
     def __init__(self) -> None:
         self.width = DISPLAY[0]
@@ -26,6 +53,7 @@ class Screen:
         self.player = Player(self.screen)
         self.player_bullets = []
         self.asteroids = []
+        self.asteroids_wait = 1000
         self.saucers = []
         self.saucer_bullets = []
         
@@ -79,6 +107,29 @@ class Screen:
         
         self.player.update()
         
+        if (len(self.asteroids) == 0) or (time.time() - self.asteroids[len(self.asteroids)-1].origin > self.asteroids_wait/1000):
+            direction = random.randint(0, 360)
+            
+            if direction in range(0, 90):
+                start = (0, random.randint(0, self.height))
+            elif direction in range(90, 180):
+                start = (random.randint(0, self.width), self.height)
+            elif direction in range(180, 270):
+                start = (self.width, random.randint(0, self.height))
+            else:
+                start = (random.randint(0, self.width), 0)
+            
+            direction -= 45
+            size = random.choice(["L", "M", "S"])
+            
+            self.asteroids.append(Asteroid(direction, start, self.screen, size))
+            
+            if not( len(self.asteroids) > 10 ):
+                self.asteroids_wait *= 0.99
+            
+            if self.asteroids_wait < 250:
+                self.asteroids_wait = 250
+            
         for bullet in self.player_bullets:
             position = bullet.get_position()
             
@@ -121,7 +172,7 @@ class Screen:
             bullet_position = player_bullet.get_position()
             
             for asteroid in self.asteroids:
-                if asteroid.collides_with(bullet_position):
+                if asteroid.collides_with(bullet_position) and player_bullet in self.player_bullets:
                     self.player_bullets.remove(player_bullet)
                     
                     astedoid_size = asteroid.get_size()
@@ -131,13 +182,24 @@ class Screen:
                     new_direction_2 = asteroid_direction - 45
                     if astedoid_size == 10:
                         self.asteroids.append(Asteroid(new_direction_1, asteroid_position, self.screen, "M"))
-                        self.asteroids.append(Asteroid(new_direction_2, asteroid_position, self.screen, "M"))                    
+                        self.asteroids.append(Asteroid(new_direction_2, asteroid_position, self.screen, "M"))    
+                        self.player.score += 20                
                     elif astedoid_size == 8:
                         self.asteroids.append(Asteroid(new_direction_1, asteroid_position, self.screen, "S"))
                         self.asteroids.append(Asteroid(new_direction_2, asteroid_position, self.screen, "S"))
+                        self.player.score += 10
+                    else:
+                        self.player.score += 5
                     
                     self.asteroids.remove(asteroid)
-                    
+               
+        text_surface = SCORE_FONT.render(f"Score: {self.player.score}", True, CL_WHITE)
+        self.screen.blit(text_surface, SCORE_TOP_LEFT)
+        
+        current_life_top_left = LIVES_TOP_LEFT
+        for life in range(self.player.lives):
+            draw_life(self.screen, current_life_top_left)
+            current_life_top_left = (current_life_top_left[0] + LIFE_WIDTH + 10, current_life_top_left[1])
         
         pygame.display.update()
         
@@ -151,18 +213,18 @@ class Player:
         self.tip = 0
         self.points = []
         
-        self.speed = 0.1
+        self.speed = 0.075
         self.velocity = [0, 0]
         self.last_key = [None, None]
         
         self.score = 0
         self.lives = lives
         
-        self.tip_length = 20
-        self.wing_length = 40
-        self.back_depth = 30
+        self.tip_length = TIP_LENGTH
+        self.wing_length = WING_LENGTH
+        self.back_depth = BACK_DEPTH
         
-        self.tip_angle = math.radians(45) /2
+        self.tip_angle = TIP_ANGLE
         
         self.tip = (self.position[0] + self.tip_length, self.position[1])
         
@@ -312,7 +374,7 @@ class Player:
         
         self.lives -= 1
         
-        if self.lives == 0:
+        if self.lives == -1:
             print("end game")
             pygame.quit()
             sys.exit()
@@ -335,6 +397,7 @@ class Bullet:
         self.screen = screen
         self.radius = 4
         
+        
     def update(self):
         self.position = (self.position[0] + self.delta_x, self.position[1] - self.delta_y)
         pygame.draw.circle(self.screen, CL_WHITE, self.position, self.radius)
@@ -355,6 +418,8 @@ class Asteroid():
         self.delta_x = self.velocity * math.cos(self.direction)
         self.delta_y = self.velocity * math.sin(self.direction)
         self.corners = []
+        
+        self.origin = time.time()
         
         if size == "L":
             self.corner_count = 10
@@ -407,57 +472,6 @@ class Asteroid():
         return math.degrees(self.direction)
     
     
-class Text:
-    def __init__(self, top_left, length=1, size=None) -> None:
-        self.top_left = top_left
-        self.length = length
-        self.size = size if size is not None else DEFAULT_FONT_SIZE
-        
-        self.text = ["" for _ in range(self.length)]
-        
-        self.letter_height = self.size
-        self.letter_width = int(self.size / 2)
-        self.padding = int(size * 0.1)
-        self.line_width = int(self.size * 0.25)
-        
-    def single_letter(self, index, letter_code):
-        letter_top_left = (self.top_left[0] + index * (self.letter_width + 2*self.padding) + self.padding, self.top_left[1]+self.padding)
-        bin_code = bin(letter_code)[2:].split()
-        
-        polygon = [(0, 0) for i in range(4)]
-        polygon[0] = letter_top_left
-        polygon[1] = (letter_top_left[0] + self.letter_width, letter_top_left[1])
-        polygon[2] = (letter_top_left[0] + self.letter_width - self.line_width, letter_top_left[1] + self.line_width)
-        polygon[3] = (letter_top_left[0] + self.line_width, letter_top_left[1] + self.line_width)
-        
-        if bin_code[0] == "1":
-            pygame.draw.polygon(screen, CL_WHITE, polygon)        
-        else:
-            pygame.draw.polygon(screen, CL_DARK_GRAY, polygon)
-        pygame.draw.polygon(screen, CL_LIGHT_GRAY, polygon, 1)
-        
-        polygon[0] = (letter_top_left[0] + self.letter_width, letter_top_left[1])
-        polygon[1] = (letter_top_left[0] + self.letter_width, letter_top_left[1] + self.letter_width)
-        polygon[2] = (letter_top_left[0] + self.letter_width - self.line_width, letter_top_left[1] + self.letter_width - self.line_width)
-        polygon[3] = (letter_top_left[0] + self.letter_width - self.line_width, letter_top_left[1] + self.line_width)
-        
-        if bin_code[1] == "1":
-            pygame.draw.polygon(screen, CL_WHITE, polygon)        
-        else:
-            pygame.draw.polygon(screen, CL_DARK_GRAY, polygon)
-        pygame.draw.polygon(screen, CL_LIGHT_GRAY, polygon, 1)
-        
-    def update_text(self, text):
-        self.text = text
-        
-        for i, letter in enumerate(text):
-            self.single_letter(i, hex(ord(letter)))
-      
-    def get_letter_code(self, letter):
-        if letter == " ":
-            return "00000000"
-        elif letter == "A":
-            return "01100001"  
         
 if __name__ == "__main__":
     pygame.init()
