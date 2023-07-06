@@ -42,6 +42,7 @@ def draw_life(screen, top_left):
     life = [tip, right_wing, right_back, left_back, left_wing]
     pygame.draw.polygon(screen, CL_WHITE, life, 2)
     
+    
 class Screen:
     def __init__(self) -> None:
         self.width = DISPLAY[0]
@@ -57,7 +58,79 @@ class Screen:
         self.saucers = []
         self.saucer_bullets = []
         
+    def start(self):
+        random_coordinates = [[random.randint(int(self.width*i/10), int(self.width*(i+1)/10)), random.randint(int(self.height*i/10), int(self.height*(i+1)/10))] for i in range(7)]
+        for i, coordinate in enumerate(random_coordinates):
+            while (coordinate[0] in range(int(self.width/2)-250, int(self.width/2)+250)) or (coordinate[1] in range(int(self.height/2)-100, int(self.height/2)+100)):
+                coordinate[0] = random.randint(0, self.width)
+                coordinate[1] = random.randint(0, self.height)
+        
+        for coordinate in range(len(random_coordinates)):
+            direction = random.randint(0, 360)
+            size = random.choice(["L", "M", "S"])
+            self.asteroids.append(Asteroid(direction, random_coordinates[coordinate], self.screen, size))
+            
+        # text_height = 90
+        # text_width = 30
+        # inner_line_height = 10
+            
+        asteroids_text = [   
+            [(257.5, 390), (257.5, 335), (280, 300), (302.5, 335), (302.5, 390), (302.5, 355), (257.5, 355)], #A
+            [(312.5, 390), (357.5, 390), (357.5, 345), (312.5, 345), (312.5, 300), (357.5, 300)], #S
+            [(367.5, 300), (412.5, 300), (390, 300), (390, 390)], #T
+            [(467.5, 300), (422.5, 300), (422.5, 355), (467.5, 355), (422.5, 355), (422.5, 390), (467.5, 390)], #E 
+            [(477.5, 390), (477.5, 300), (522.5, 300), (522.5, 355), (477.5, 355), (522.5, 390)], #R
+            [(532.5, 390), (532.5, 300), (577.5, 300), (577.5, 390), (532.5, 390)], #O
+            [(587.5, 300), (632.5, 300), (610, 300), (610, 390), (632.5, 390), (587.5, 390)], #I 
+            [(642.5, 300), (665, 300), (687.5, 322.5), (687.5, 367.5), (665, 390), (642.5, 390), (642.5, 300)], #D
+            [(697.5, 390), (742.5, 390), (742.5, 345), (697.5, 345), (697.5, 300), (742.5, 300)] #S
+        ]
+        
+        press_to_play_text = [
+            [(275, 460), (275, 410), (305, 410), (305, 440), (275, 440)], #P
+            [(310, 460), (310, 410), (340, 410), (340, 440), (310, 440), (340, 460)], #R
+            [(375, 410), (345, 410), (345, 440), (375, 440), (345, 440), (345, 460), (375, 460)], #E
+            [(380, 460), (410, 460), (410, 435), (380, 435), (380, 410), (410, 410)], #S
+            [(415, 460), (445, 460), (445, 435), (415, 435), (415, 410), (445, 410)], #S 
+            [(485, 410), (515, 410), (500, 410), (500, 460)], #T
+            [(520, 460), (520, 410), (550, 410), (550, 460), (520, 460)], #O
+            [(590, 460), (590, 410), (620, 410), (620, 440), (590, 440)], #P
+            [(625, 410), (625, 460), (655, 460)], #L
+            [(660, 460), (660, 430), (675, 410), (690, 430), (690, 460), (690, 440), (660, 440)], #A
+            [(695, 410), (710, 430), (725, 410), (710, 430), (710, 460)]  #Y
+        ]
+        
+        for letter in asteroids_text:
+            for point in range(len(letter)-1):
+                pygame.draw.line(self.screen, CL_WHITE, letter[point], letter[point+1], 3)
+                
+        for letter in press_to_play_text:
+            for point in range(len(letter)-1):
+                pygame.draw.line(self.screen, CL_WHITE, letter[point], letter[point+1], 2)
+        
+        for asteroid in self.asteroids:
+            asteroid._draw()
+                
+        pygame.display.update()
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                
+                if event.type == pygame.KEYDOWN:
+                    waiting = False
+                    break
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    waiting = False
+                    break
+                
+        self.asteroids.clear()
+        
     def run(self):
+        self.start()
+        
         while True:
             for event in pygame.event.get():
                 #== QUIT ==#
@@ -205,7 +278,7 @@ class Screen:
         
         
 class Player:
-    def __init__(self, screen, lives=3) -> None:
+    def __init__(self, screen, lives=3, score=0) -> None:
         self.screen = screen
         
         self.direction = math.radians(0)
@@ -217,7 +290,7 @@ class Player:
         self.velocity = [0, 0]
         self.last_key = [None, None]
         
-        self.score = 0
+        self.score = score
         self.lives = lives
         
         self.tip_length = TIP_LENGTH
@@ -243,7 +316,7 @@ class Player:
         self.points.append(right_back)
         self.points.append(left_back)
         self.points.append(left_wing)
-        pygame.draw.polygon(self.screen, CL_WHITE, self.points, 2)
+        
         
         
     def _draw(self):
@@ -370,16 +443,13 @@ class Player:
         pygame.draw.polygon(self.screen, CL_WHITE, self.points, 2)
         
     def die(self):
-        print("die")
-        
         self.lives -= 1
         
         if self.lives == -1:
-            print("end game")
             pygame.quit()
             sys.exit()
             
-        self.__init__(self.screen, self.lives)
+        self.__init__(self.screen, self.lives, self.score)
         time.sleep(1)
         
         
