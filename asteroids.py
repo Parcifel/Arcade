@@ -446,7 +446,39 @@ class Player:
         self.lives -= 1
         
         if self.lives == -1:
-            pygame.quit()
+            
+            game_over_text = [
+                [(402, 302), (402, 242), (327, 242), (327, 392), (402, 392), (402, 332), (372, 332)], #G
+                [(417, 392), (417, 302), (454.5, 242), (492, 302), (492, 392), (492, 332), (417, 332)], #A 
+                [(508, 392), (508, 242), (545.5, 302), (585, 242), (585, 392)], #M
+                [(673, 242), (598, 242), (598, 332), (673, 332), (598, 332), (598, 392), (673, 392)], #E
+                [(327, 558), (327, 408), (402, 408), (402, 558), (327, 558)], #O
+                [(417, 408), (454.5, 558), (492, 408)], #V
+                [(583, 408), (508, 408), (508, 498), (583, 498), (508, 498), (508, 558), (583, 558)], #E
+                [(598, 558), (598, 408), (673, 408), (673, 498), (598, 498), (673, 558)]  #R
+            ]
+            
+            
+            for letter in game_over_text:
+                for point in range(len(letter)-1):
+                    pygame.draw.line(self.screen, CL_WHITE, letter[point], letter[point+1], 4)
+            
+            timer = 0
+            stop = 3
+            while True:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit() 
+                        sys.exit()
+                        
+                pygame.display.update()
+                time.sleep(0.1)
+                timer += 0.1
+                
+                if timer >= stop:
+                    break
+            
+            pygame.quit() 
             sys.exit()
             
         self.__init__(self.screen, self.lives, self.score)
